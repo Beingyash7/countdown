@@ -54,7 +54,7 @@ async function postToSheets(payload: TelemetryPayload) {
   try {
     await fetch(SHEETS_WEBAPP_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ secret: TELEMETRY_SECRET, ...payload }),
     });
   } catch (e) {

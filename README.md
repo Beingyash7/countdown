@@ -31,6 +31,25 @@ Important:
 4. Output directory: `dist`
 5. Deploy -> share the link with classmates
 
+## Deploy (Netlify — Git deploy)
+
+1. Push this repo to GitHub.
+2. In the Netlify UI, click **Add new site → Import an existing project** and select the repo.
+3. Netlify will auto-detect settings from `netlify.toml`:
+   - **Build command:** `npm run build`
+   - **Publish directory:** `dist`
+4. Add the following **environment variables** in the Netlify UI (**Site settings → Environment variables**):
+   - `VITE_SHEETS_WEBAPP_URL` — your Google Apps Script `/exec` URL
+   - `VITE_TELEMETRY_SECRET` — the shared secret string (must match the one in your Apps Script)
+   - `VITE_TELEMETRY_MODE` — set to `sheets`, `telegram`, `both`, or `off`
+   - (Optional) `VITE_TELEGRAM_BOT_TOKEN`, `VITE_TELEGRAM_CHAT_ID`
+5. Deploy the site.
+
+**Notes:**
+- For Vite projects, environment variables must start with `VITE_` to be available in client-side code.
+- Git-based deploys are required for Netlify UI environment variables to be injected at build time (drag-and-drop deploys do not run the build step).
+- The `netlify.toml` includes a SPA catch-all redirect (`/* → /index.html`) so that refreshing any route (e.g. `/website/admin-yash`) works correctly.
+
 ## Admin Panel
 
 - Admin route is controlled via `VITE_ADMIN_PATH` (default: `/website/admin-yash`)
