@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { TimeRemaining } from './types';
 import { generateMissionUpdate, generateNewMission } from './services/geminiService';
 import { getUsersData, updateCurrentUser, UserRecord, getCurrentUser, saveUsersData } from './usersdata';
-import { sendTelemetry } from './services/telemetry';
+import { logEvent, sendTelemetry } from './services/telemetry';
 
 const ADMIN_PATH = (import.meta.env.VITE_ADMIN_PATH || '/website/admin-yash') as string;
 const ADMIN_PASSWORD = (import.meta.env.VITE_ADMIN_PASSWORD || 'yash2701') as string;
@@ -124,6 +124,12 @@ const App: React.FC = () => {
     };
   }, [isNameGateOpen]);
 
+  useEffect(() => {
+    if (currentPath !== ADMIN_PATH) return;
+    const stored = sessionStorage.getItem('isAdmin') === 'true';
+    if (stored) setIsAdminAuth(true);
+  }, [currentPath]);
+
   const targetDate = useMemo(() => {
     const now = new Date();
     let d = new Date(now.getFullYear(), 1, 22);
@@ -196,6 +202,7 @@ const App: React.FC = () => {
     localStorage.setItem('userName', trimmed);
     const updated = updateCurrentUser({ name: trimmed });
     setUser(updated);
+    void logEvent('name_submit', trimmed);
     setNameError('');
     setIsNameGateOpen(false);
   };
@@ -213,15 +220,24 @@ const App: React.FC = () => {
     e.preventDefault();
     if (adminPassword === ADMIN_PASSWORD) {
       setIsAdminAuth(true);
-      void sendTelemetry('admin_login_success', { userId: user.id, name: user.name });
+      sessionStorage.setItem('isAdmin', 'true');
+      void logEvent('admin_login_success', user.name);
       const data = getUsersData();
       setAllUsers(data);
       const current = data.find(u => u.id === selectedUserId) || data[0];
       setAdminFormData(current);
     } else {
-      void sendTelemetry('admin_login_fail', { userId: user.id, name: user.name });
+      sessionStorage.removeItem('isAdmin');
+      setIsAdminAuth(false);
+      void logEvent('admin_login_fail', user.name);
       alert("Unauthorized Access Attempt.");
     }
+  };
+
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem('isAdmin');
+    setIsAdminAuth(false);
+    setAdminPassword('');
   };
 
   const handleAdminCommit = () => {
@@ -287,12 +303,20 @@ const App: React.FC = () => {
                 </div>
                 <h1 className="text-xl font-light tracking-widest uppercase">Forensic Command Center</h1>
               </div>
-              <button 
-                onClick={() => { window.history.pushState({}, '', '/'); setCurrentPath('/'); }}
-                className="text-[10px] uppercase tracking-widest text-white/40 hover:text-white transition-colors"
-              >
-                Exit Terminal
-              </button>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={handleAdminLogout}
+                  className="text-[10px] uppercase tracking-widest text-white/40 hover:text-white transition-colors"
+                >
+                  Logout
+                </button>
+                <button
+                  onClick={() => { window.history.pushState({}, '', '/'); setCurrentPath('/'); }}
+                  className="text-[10px] uppercase tracking-widest text-white/40 hover:text-white transition-colors"
+                >
+                  Exit Terminal
+                </button>
+              </div>
             </header>
 
             <div className="flex-grow flex overflow-hidden">

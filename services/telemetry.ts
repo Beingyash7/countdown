@@ -1,7 +1,4 @@
-﻿type TelemetryMode = 'off' | 'sheets' | 'telegram' | 'both';
-
-const MODE = (import.meta.env.VITE_TELEMETRY_MODE || 'off') as TelemetryMode;
-const SHEETS_WEBAPP_URL = (import.meta.env.VITE_SHEETS_WEBAPP_URL || '') as string;
+﻿const SHEETS_WEBAPP_URL = (import.meta.env.VITE_SHEETS_WEBAPP_URL || '') as string;
 const TELEMETRY_SECRET = (import.meta.env.VITE_TELEMETRY_SECRET || '') as string;
 
 const TELEGRAM_FUNCTION_URL = '/.netlify/functions/log';
@@ -12,7 +9,8 @@ export type TelemetryEventType =
   | 'status_refresh'
   | 'admin_login_success'
   | 'admin_login_fail'
-  | 'admin_commit';
+  | 'admin_commit'
+  | 'name_submit';
 
 export interface TelemetryPayload {
   // app/user data
@@ -71,7 +69,7 @@ function buildTelegramDetails(payload: TelemetryPayload): string {
 
 async function postToTelegram(payload: TelemetryPayload) {
   try {
-    await fetch(TELEGRAM_FUNCTION_URL, {
+    const response = await fetch(TELEGRAM_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -81,14 +79,16 @@ async function postToTelegram(payload: TelemetryPayload) {
         path: payload.path || '',
       }),
     });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn('Telemetry (Telegram) failed', response.status, errorText);
+    }
   } catch (e) {
     console.warn('Telemetry (Telegram) failed', e);
   }
 }
 
 export async function sendTelemetry(event: TelemetryEventType, partial: Omit<TelemetryPayload, 'event' | 'timestamp'> = {}) {
-  if (MODE === 'off') return;
-
   const payload: TelemetryPayload = {
     ...buildBase(),
     ...partial,
@@ -96,8 +96,9 @@ export async function sendTelemetry(event: TelemetryEventType, partial: Omit<Tel
     timestamp: new Date().toISOString(),
   };
 
-  if (MODE === 'sheets') return postToSheets(payload);
-  if (MODE === 'telegram') return postToTelegram(payload);
-  // both
   await Promise.all([postToSheets(payload), postToTelegram(payload)]);
+}
+
+export function logEvent(event: TelemetryEventType, name?: string) {
+  return sendTelemetry(event, { name });
 }
