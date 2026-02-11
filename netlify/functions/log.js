@@ -1,12 +1,34 @@
 ﻿const TELEGRAM_API_BASE = 'https://api.telegram.org';
 
-function buildMessage({ event, name, details, path, timestamp }) {
+function parseUserAgent(ua = '') {
+  let os = 'Unknown';
+  if (/Windows NT/i.test(ua)) os = 'Windows';
+  else if (/Android/i.test(ua)) os = 'Android';
+  else if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS';
+  else if (/Mac OS X/i.test(ua)) os = 'macOS';
+  else if (/Linux/i.test(ua)) os = 'Linux';
+
+  let browser = 'Unknown';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/OPR\//i.test(ua) || /Opera/i.test(ua)) browser = 'Opera';
+  else if (/Chrome\//i.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/Safari\//i.test(ua)) browser = 'Safari';
+
+  const deviceType = /Mobi|Android|iPhone|iPad|iPod/i.test(ua) ? 'Mobile' : 'Desktop';
+
+  return { os, browser, deviceType };
+}
+
+function buildMessage({ event, name, details, path, timestamp, deviceInfo, meta }) {
   const lines = [
     `Timestamp (IST): ${timestamp}`,
     event ? `Event: ${event}` : 'Event: (missing)',
     name ? `Name: ${name}` : '',
     details ? `Details: ${details}` : '',
     path ? `Path: ${path}` : '',
+    deviceInfo ? `Device: ${deviceInfo}` : '',
+    meta ? `Meta: ${meta}` : '',
   ].filter(Boolean);
 
   return lines.join('\n');
@@ -31,7 +53,22 @@ exports.handler = async (netlifyEvent) => {
     return { statusCode: 500, body: 'Invalid JSON body' };
   }
 
-  const { event, name, details, path } = payload || {};
+  const {
+    event,
+    name,
+    details,
+    path,
+    userAgent,
+    platform,
+    language,
+    screen,
+    dpr,
+    timezone,
+    cores,
+    memory,
+    connection,
+    referrer,
+  } = payload || {};
   const timestamp = new Date().toLocaleString('en-IN', {
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
@@ -43,7 +80,22 @@ exports.handler = async (netlifyEvent) => {
     hour12: false,
   });
 
-  const text = buildMessage({ event, name, details, path, timestamp });
+  const { os, browser, deviceType } = parseUserAgent(userAgent || '');
+  const deviceInfo = [deviceType, os, browser].filter(Boolean).join(' | ');
+  const metaParts = [
+    platform ? `platform=${platform}` : '',
+    language ? `lang=${language}` : '',
+    screen ? `screen=${screen}` : '',
+    dpr ? `dpr=${dpr}` : '',
+    timezone ? `tz=${timezone}` : '',
+    Number.isFinite(cores) ? `cores=${cores}` : '',
+    Number.isFinite(memory) ? `mem=${memory}GB` : '',
+    connection ? `net=${connection}` : '',
+    referrer ? `ref=${referrer}` : '',
+  ].filter(Boolean);
+  const meta = metaParts.join(' | ');
+
+  const text = buildMessage({ event, name, details, path, timestamp, deviceInfo, meta });
 
   try {
     const response = await fetch(`${TELEGRAM_API_BASE}/bot${token}/sendMessage`, {

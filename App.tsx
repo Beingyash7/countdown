@@ -14,13 +14,11 @@ const App: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<TimeRemaining>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isSyncing, setIsSyncing] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
-  const [isNameGateOpen, setIsNameGateOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [nameInput, setNameInput] = useState('');
+  const [progressInput, setProgressInput] = useState(user.progress);
   const [nameError, setNameError] = useState('');
-  
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [inputName, setInputName] = useState(user.name);
-  const [inputProgress, setInputProgress] = useState(user.progress);
+  const [progressError, setProgressError] = useState('');
 
   // Admin UI State
   const [adminPassword, setAdminPassword] = useState("");
@@ -98,31 +96,38 @@ const App: React.FC = () => {
     captureMetadata();
   }, []);
 
-  // Name gate on first load
+  // Profile gate on first load
   useEffect(() => {
     const savedName = localStorage.getItem('userName');
+    const savedProgressRaw = localStorage.getItem('userProgress');
     const trimmed = (savedName || '').trim();
-    if (trimmed.length >= 2) {
-      if (trimmed !== user.name) {
-        const updated = updateCurrentUser({ name: trimmed });
+    const progressNum = savedProgressRaw !== null ? Number(savedProgressRaw) : Number.NaN;
+    const validName = trimmed.length >= 2;
+    const validProgress = Number.isFinite(progressNum) && progressNum >= 0 && progressNum <= 100;
+
+    if (validName && validProgress) {
+      if (trimmed !== user.name || progressNum !== user.progress) {
+        const updated = updateCurrentUser({ name: trimmed, progress: progressNum });
         setUser(updated);
       }
-      setIsNameGateOpen(false);
       setNameInput(trimmed);
+      setProgressInput(progressNum);
+      setIsProfileModalOpen(false);
     } else {
-      setIsNameGateOpen(true);
-      setNameInput('');
+      setNameInput(validName ? trimmed : '');
+      setProgressInput(validProgress ? progressNum : user.progress);
+      setIsProfileModalOpen(true);
     }
   }, []);
 
   useEffect(() => {
-    if (!isNameGateOpen) return;
+    if (!isProfileModalOpen) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = previous;
     };
-  }, [isNameGateOpen]);
+  }, [isProfileModalOpen]);
 
   useEffect(() => {
     if (currentPath !== ADMIN_PATH) return;
@@ -178,10 +183,25 @@ const App: React.FC = () => {
     setIsSyncing(false);
   };
 
-  const handleDashboardSync = (e: React.FormEvent) => {
+  const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const updated = updateCurrentUser({ name: inputName, progress: inputProgress });
+    const trimmed = nameInput.trim();
+    const progressVal = Number(progressInput);
+    if (trimmed.length < 2) {
+      setNameError('Name must be at least 2 characters.');
+    } else {
+      setNameError('');
+    }
+    if (!Number.isFinite(progressVal) || progressVal < 0 || progressVal > 100) {
+      setProgressError('Progress must be between 0 and 100.');
+      return;
+    }
+    setProgressError('');
+    localStorage.setItem('userName', trimmed);
+    localStorage.setItem('userProgress', String(progressVal));
+    const updated = updateCurrentUser({ name: trimmed, progress: progressVal });
     setUser(updated);
+    void logEvent('name_submit', trimmed);
     void sendTelemetry('profile_update', {
       userId: updated.id,
       name: updated.name,
@@ -189,30 +209,17 @@ const App: React.FC = () => {
       progress: updated.progress,
       status: updated.status,
     });
-    setIsPopupOpen(false);
-  };
-
-  const handleNameSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = nameInput.trim();
-    if (trimmed.length < 2) {
-      setNameError('Name must be at least 2 characters.');
-      return;
-    }
-    localStorage.setItem('userName', trimmed);
-    const updated = updateCurrentUser({ name: trimmed });
-    setUser(updated);
-    void logEvent('name_submit', trimmed);
-    setNameError('');
-    setIsNameGateOpen(false);
+    setIsProfileModalOpen(false);
   };
 
   const handleChangeName = () => {
     localStorage.removeItem('userName');
+    localStorage.removeItem('userProgress');
     setNameInput('');
+    setProgressInput(0);
     setNameError('');
-    setIsNameGateOpen(true);
-    setIsPopupOpen(false);
+    setProgressError('');
+    setIsProfileModalOpen(true);
   };
 
   // ADMIN ACTIONS
@@ -414,7 +421,7 @@ const App: React.FC = () => {
 
   // DASHBOARD VIEW
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center overflow-x-hidden overflow-y-visible bg-background-dark p-6 md:p-8">
+    <div className="relative min-h-screen w-full flex items-center justify-center overflow-x-hidden overflow-y-visible bg-background-dark px-6 py-8 md:px-8 md:py-10">
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-40 scale-110">
           <source src="https://assets.mixkit.co/videos/preview/mixkit-the-earth-rotating-in-space-20093-large.mp4" type="video/mp4" />
@@ -446,7 +453,7 @@ const App: React.FC = () => {
             <span>Change Name</span>
           </button>
           <button 
-            onClick={() => { setInputName(user.name); setInputProgress(user.progress); setIsPopupOpen(true); }}
+            onClick={() => { setNameInput(user.name); setProgressInput(user.progress); setNameError(''); setProgressError(''); setIsProfileModalOpen(true); }}
             className="flex items-center space-x-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-[10px] font-bold uppercase tracking-widest text-white/70"
           >
             <span className="material-icons text-sm">edit</span>
@@ -454,7 +461,7 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        <div className="acrylic relative z-10 rounded-3xl overflow-hidden flex flex-col min-h-[600px] border border-white/10 shadow-2xl">
+        <div className="acrylic relative z-10 rounded-3xl overflow-hidden flex flex-col min-h-[600px] border border-white/10 shadow-2xl max-h-[calc(100vh-5rem)] md:max-h-[calc(100vh-6rem)]">
           <header className="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -474,7 +481,7 @@ const App: React.FC = () => {
             </button>
           </header>
 
-          <div className="flex-grow flex flex-col items-center justify-center text-center p-12">
+          <div className="flex-grow flex flex-col items-center justify-center text-center p-12 overflow-y-auto">
             <div className="mb-8">
               <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[9px] font-bold uppercase tracking-[0.3em] mb-6">
                 <span className="material-icons text-[12px] mr-2">timer</span>
@@ -507,42 +514,15 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {isPopupOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="acrylic w-full max-w-md p-8 rounded-3xl border border-white/20 animate-in zoom-in-95">
-            <h2 className="text-lg font-light mb-6 tracking-tight text-white/90">Synchronize Candidate Data</h2>
-            <form onSubmit={handleDashboardSync} className="space-y-6">
-              <div className="space-y-1">
-                <label className="text-[9px] uppercase tracking-widest text-white/40 font-bold">Candidate Name</label>
-                <input 
-                  type="text" value={inputName} onChange={e => setInputName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary"
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between">
-                  <label className="text-[9px] uppercase tracking-widest text-white/40 font-bold">Completion: {inputProgress}%</label>
-                </div>
-                <input 
-                  type="range" min="0" max="100" value={inputProgress} onChange={e => setInputProgress(parseInt(e.target.value))}
-                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-              </div>
-              <button className="w-full py-4 bg-primary rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-primary/30">
-                Commit Changes
-              </button>
-              <button type="button" onClick={() => setIsPopupOpen(false)} className="w-full text-[9px] uppercase tracking-widest text-white/20 mt-2">Abort</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isNameGateOpen && (
+      {isProfileModalOpen && (
         <NameModal
           value={nameInput}
+          progress={progressInput}
           error={nameError}
+          progressError={progressError}
           onChange={setNameInput}
-          onSubmit={handleNameSubmit}
+          onProgressChange={setProgressInput}
+          onSubmit={handleProfileSubmit}
         />
       )}
     </div>
@@ -581,15 +561,18 @@ const MetadataItem: React.FC<{ icon: string; label: string; value: string }> = (
 
 const NameModal: React.FC<{
   value: string;
+  progress: number;
   error: string;
+  progressError: string;
   onChange: (value: string) => void;
+  onProgressChange: (value: number) => void;
   onSubmit: (e: React.FormEvent) => void;
-}> = ({ value, error, onChange, onSubmit }) => (
+}> = ({ value, progress, error, progressError, onChange, onProgressChange, onSubmit }) => (
   <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
     <div className="acrylic w-full max-w-md p-8 rounded-3xl border border-white/20 animate-in zoom-in-95">
       <h2 className="text-lg font-light mb-2 tracking-tight text-white/90">Enter Your Name</h2>
-      <p className="text-[11px] text-white/50 mb-6">This is required to continue.</p>
-      <form onSubmit={onSubmit} className="space-y-4">
+      <p className="text-[11px] text-white/50 mb-6">Name and progress are required to continue.</p>
+      <form onSubmit={onSubmit} className="space-y-5">
         <div className="space-y-1">
           <label className="text-[9px] uppercase tracking-widest text-white/40 font-bold">Name</label>
           <input
@@ -600,6 +583,31 @@ const NameModal: React.FC<{
             autoFocus
           />
           {error && <p className="text-[10px] text-red-400 mt-1">{error}</p>}
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[9px] uppercase tracking-widest text-white/40 font-bold">Progress</label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={Number.isFinite(progress) ? progress : 0}
+                onChange={e => onProgressChange(Number(e.target.value))}
+                className="w-20 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:border-primary"
+              />
+              <span className="text-[10px] text-white/40">%</span>
+            </div>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={Number.isFinite(progress) ? progress : 0}
+            onChange={e => onProgressChange(parseInt(e.target.value, 10))}
+            className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+          />
+          {progressError && <p className="text-[10px] text-red-400 mt-1">{progressError}</p>}
         </div>
         <button className="w-full py-4 bg-primary rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-primary/30">
           Submit

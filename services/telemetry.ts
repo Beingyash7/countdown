@@ -28,8 +28,13 @@ export interface TelemetryPayload {
   userAgent?: string;
   platform?: string;
   language?: string;
+  timezone?: string;
   timezoneOffsetMin?: number;
   screen?: string;
+  dpr?: number;
+  cores?: number;
+  memory?: number;
+  connection?: string;
   referrer?: string;
   path?: string;
 }
@@ -39,8 +44,13 @@ const buildBase = (): Omit<TelemetryPayload, 'event'> => ({
   userAgent: navigator.userAgent,
   platform: navigator.platform,
   language: navigator.language,
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   timezoneOffsetMin: new Date().getTimezoneOffset(),
   screen: `${window.screen?.width || 0}x${window.screen?.height || 0}`,
+  dpr: window.devicePixelRatio || 1,
+  cores: navigator.hardwareConcurrency,
+  memory: (navigator as any).deviceMemory,
+  connection: (navigator as any).connection?.effectiveType,
   referrer: document.referrer || '',
   path: window.location.pathname,
 });
@@ -77,6 +87,16 @@ async function postToTelegram(payload: TelemetryPayload) {
         name: payload.name || '',
         details: buildTelegramDetails(payload),
         path: payload.path || '',
+        userAgent: payload.userAgent || '',
+        platform: payload.platform || '',
+        language: payload.language || '',
+        screen: payload.screen || '',
+        dpr: payload.dpr,
+        timezone: payload.timezone || '',
+        cores: payload.cores,
+        memory: payload.memory,
+        connection: payload.connection || '',
+        referrer: payload.referrer || '',
       }),
     });
     if (!response.ok) {
