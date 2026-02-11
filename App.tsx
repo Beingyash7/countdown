@@ -275,7 +275,7 @@ const App: React.FC = () => {
   // ADMIN VIEW
   if (currentPath === ADMIN_PATH) {
     return (
-      <div className="relative min-h-screen w-full flex flex-col items-center justify-center bg-[#05080a] text-white p-6 overflow-hidden">
+      <div className="min-h-screen overflow-x-hidden overflow-y-auto py-10 bg-[#05080a] text-white flex flex-col items-center justify-center p-6">
         <div className="absolute inset-0 z-0 opacity-5 grayscale pointer-events-none">
           <video autoPlay loop muted playsInline className="w-full h-full object-cover">
             <source src="https://assets.mixkit.co/videos/preview/mixkit-the-earth-rotating-in-space-20093-large.mp4" type="video/mp4" />
@@ -302,7 +302,7 @@ const App: React.FC = () => {
             </form>
           </div>
         ) : (
-          <div className="acrylic relative z-10 w-full max-w-6xl h-[85vh] rounded-3xl border border-white/10 flex flex-col overflow-hidden animate-in slide-in-from-bottom-4">
+          <div className="acrylic relative z-10 w-full max-w-6xl rounded-3xl border border-white/10 flex flex-col animate-in slide-in-from-bottom-4">
             <header className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
               <div className="flex items-center space-x-4">
                 <div className="p-2 bg-primary/10 rounded-lg">
@@ -326,7 +326,7 @@ const App: React.FC = () => {
               </div>
             </header>
 
-            <div className="flex-grow flex overflow-hidden">
+            <div className="flex-grow flex">
               {/* Sidebar: User List & Search */}
               <aside className="w-80 border-r border-white/5 flex flex-col bg-black/20">
                 <div className="p-4 border-b border-white/5">
@@ -363,7 +363,7 @@ const App: React.FC = () => {
               </aside>
 
               {/* Main: User Detail View */}
-              <main className="flex-grow overflow-y-auto p-10 space-y-10 custom-scrollbar">
+              <main className="flex-grow p-10 space-y-10 custom-scrollbar">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                   <div className="lg:col-span-2 space-y-8">
                     <h3 className="text-[10px] uppercase tracking-[0.3em] text-primary font-black">Identity Modulation</h3>
@@ -421,7 +421,7 @@ const App: React.FC = () => {
 
   // DASHBOARD VIEW
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center overflow-x-hidden overflow-y-visible bg-background-dark px-6 py-8 md:px-8 md:py-10">
+    <div className="min-h-screen overflow-x-hidden overflow-y-auto py-10 bg-background-dark relative w-full flex items-start justify-center px-6 md:px-8">
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-40 scale-110">
           <source src="https://assets.mixkit.co/videos/preview/mixkit-the-earth-rotating-in-space-20093-large.mp4" type="video/mp4" />
@@ -461,7 +461,7 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        <div className="acrylic relative z-10 rounded-3xl overflow-hidden flex flex-col min-h-[600px] border border-white/10 shadow-2xl max-h-[calc(100vh-5rem)] md:max-h-[calc(100vh-6rem)]">
+        <div className="acrylic relative z-10 rounded-3xl flex flex-col min-h-[600px] border border-white/10 shadow-2xl">
           <header className="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -481,7 +481,7 @@ const App: React.FC = () => {
             </button>
           </header>
 
-          <div className="flex-grow flex flex-col items-center justify-center text-center p-12 overflow-y-auto">
+          <div className="flex-grow flex flex-col items-center justify-center text-center p-12">
             <div className="mb-8">
               <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[9px] font-bold uppercase tracking-[0.3em] mb-6">
                 <span className="material-icons text-[12px] mr-2">timer</span>
