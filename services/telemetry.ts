@@ -1,12 +1,10 @@
-type TelemetryMode = 'off' | 'sheets' | 'telegram' | 'both';
+﻿type TelemetryMode = 'off' | 'sheets' | 'telegram' | 'both';
 
 const MODE = (import.meta.env.VITE_TELEMETRY_MODE || 'off') as TelemetryMode;
 const SHEETS_WEBAPP_URL = (import.meta.env.VITE_SHEETS_WEBAPP_URL || '') as string;
 const TELEMETRY_SECRET = (import.meta.env.VITE_TELEMETRY_SECRET || '') as string;
 
-// Telegram (optional)
-const TELEGRAM_BOT_TOKEN = (import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '') as string;
-const TELEGRAM_CHAT_ID = (import.meta.env.VITE_TELEGRAM_CHAT_ID || '') as string;
+const TELEGRAM_FUNCTION_URL = '/.netlify/functions/log';
 
 export type TelemetryEventType =
   | 'page_view'
@@ -63,27 +61,24 @@ async function postToSheets(payload: TelemetryPayload) {
   }
 }
 
-async function postToTelegram(payload: TelemetryPayload) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
-  try {
-    const text = [
-      `🛰️ *${payload.event}*`,
-      `🕒 ${payload.timestamp}`,
-      payload.name ? `👤 ${payload.name}` : '',
-      payload.missionName ? `🎯 ${payload.missionName}` : '',
-      typeof payload.progress === 'number' ? `📈 ${payload.progress}%` : '',
-      payload.status ? `📡 ${payload.status}` : '',
-      payload.path ? `🔗 ${payload.path}` : '',
-    ].filter(Boolean).join('\n');
+function buildTelegramDetails(payload: TelemetryPayload): string {
+  return [
+    payload.missionName ? `mission=${payload.missionName}` : '',
+    typeof payload.progress === 'number' ? `progress=${payload.progress}%` : '',
+    payload.status ? `status=${payload.status}` : '',
+  ].filter(Boolean).join(' | ');
+}
 
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+async function postToTelegram(payload: TelemetryPayload) {
+  try {
+    await fetch(TELEGRAM_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text,
-        parse_mode: 'Markdown',
-        disable_web_page_preview: true,
+        event: payload.event,
+        name: payload.name || '',
+        details: buildTelegramDetails(payload),
+        path: payload.path || '',
       }),
     });
   } catch (e) {
