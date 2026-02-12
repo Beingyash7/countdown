@@ -1,7 +1,7 @@
 ﻿const SHEETS_WEBAPP_URL = (import.meta.env.VITE_SHEETS_WEBAPP_URL || '') as string;
 const TELEMETRY_SECRET = (import.meta.env.VITE_TELEMETRY_SECRET || '') as string;
 
-const TELEGRAM_FUNCTION_URL = '/.netlify/functions/log';
+const TELEGRAM_FUNCTION_URL = '/api/log';
 
 export type TelemetryEventType =
   | 'page_view'
