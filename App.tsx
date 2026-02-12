@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
 import { TimeRemaining } from './types';
 import { generateMissionUpdate } from './services/geminiService';
 import { getUsersData, updateCurrentUser, UserRecord, getCurrentUser, saveUsersData } from './usersdata';
@@ -36,34 +35,69 @@ const useCanonical = () => {
   return `${SITE_URL}${location.pathname}`;
 };
 
-const SeoHead: React.FC<{
+const Seo: React.FC<{
   title: string;
   description: string;
   canonical: string;
   ogType?: string;
   schema?: Record<string, unknown> | Record<string, unknown>[];
-}> = ({ title, description, canonical, ogType = 'website', schema }) => (
-  <Helmet>
-    <title>{title}</title>
-    <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
+}> = ({ title, description, canonical, ogType = 'website', schema }) => {
+  useEffect(() => {
+    const head = document.head;
+    document.title = title;
 
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical} />
-    <meta property="og:type" content={ogType} />
+    const setMeta = (key: string, value: string, isProperty = false) => {
+      if (!value) return;
+      const selector = isProperty ? `meta[property="${key}"]` : `meta[name="${key}"]`;
+      let el = head.querySelector(selector) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement('meta');
+        if (isProperty) el.setAttribute('property', key);
+        else el.setAttribute('name', key);
+        head.appendChild(el);
+      }
+      el.setAttribute('content', value);
+    };
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={title} />
-    <meta name="twitter:description" content={description} />
+    const setLink = (rel: string, href: string) => {
+      if (!href) return;
+      let el = head.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
+      if (!el) {
+        el = document.createElement('link');
+        el.setAttribute('rel', rel);
+        head.appendChild(el);
+      }
+      el.setAttribute('href', href);
+    };
 
-    {schema ? (
-      <script type="application/ld+json">
-        {JSON.stringify(schema)}
-      </script>
-    ) : null}
-  </Helmet>
-);
+    setMeta('description', description);
+    setLink('canonical', canonical);
+
+    setMeta('og:title', title, true);
+    setMeta('og:description', description, true);
+    setMeta('og:url', canonical, true);
+    setMeta('og:type', ogType, true);
+
+    setMeta('twitter:card', 'summary_large_image');
+    setMeta('twitter:title', title);
+    setMeta('twitter:description', description);
+
+    const existingScript = head.querySelector('script[data-seo-schema="true"]') as HTMLScriptElement | null;
+    if (schema) {
+      const script = existingScript || document.createElement('script');
+      if (!existingScript) {
+        script.type = 'application/ld+json';
+        script.setAttribute('data-seo-schema', 'true');
+        head.appendChild(script);
+      }
+      script.text = JSON.stringify(schema);
+    } else if (existingScript) {
+      existingScript.remove();
+    }
+  }, [title, description, canonical, ogType, schema]);
+
+  return null;
+};
 
 const SiteShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="min-h-screen overflow-x-hidden overflow-y-auto py-10 bg-background-dark relative w-full flex items-start justify-center px-6 md:px-8">
@@ -305,7 +339,7 @@ const DashboardPage: React.FC = () => {
 
   return (
     <SiteShell>
-      <SeoHead
+      <Seo
         title="Maharashtra SSC 10th Countdown 2026 | SSC 2026 Countdown"
         description="Live SSC 2026 countdown with a focused Maharashtra SSC 10th dashboard, revision plan links, and progress tracking for board exam prep."
         canonical={canonical}
@@ -417,7 +451,7 @@ const AboutPage: React.FC = () => {
   const canonical = useCanonical();
   return (
     <SiteShell>
-      <SeoHead
+      <Seo
         title="About SSC 2026 Countdown | Maharashtra SSC 10th Focus"
         description="Learn how this Maharashtra SSC 10th countdown dashboard helps with SSC 2026 planning, daily focus, and revision structure."
         canonical={canonical}
@@ -448,7 +482,7 @@ const RevisionPlanPage: React.FC = () => {
 
   return (
     <SiteShell>
-      <SeoHead
+      <Seo
         title="SSC 2026 Revision Plan | 10-Day Maharashtra SSC 10th Sprint"
         description="A focused 10-day SSC revision plan for Maharashtra SSC 10th students, plus links to math, science, and English checklists."
         canonical={canonical}
@@ -499,7 +533,7 @@ const MathPlanPage: React.FC = () => {
 
   return (
     <SiteShell>
-      <SeoHead
+      <Seo
         title="SSC 2026 Math Plan | Maharashtra SSC 10th Math Checklist"
         description="A practical SSC 2026 math revision checklist: formulas, problem sets, and timed practice for Maharashtra SSC 10th."
         canonical={canonical}
@@ -534,7 +568,7 @@ const SciencePlanPage: React.FC = () => {
 
   return (
     <SiteShell>
-      <SeoHead
+      <Seo
         title="SSC 2026 Science Plan | Maharashtra SSC 10th Science Checklist"
         description="Practical SSC 2026 science checklist with diagrams, short answers, and concept tests for Maharashtra SSC 10th."
         canonical={canonical}
@@ -569,7 +603,7 @@ const EnglishPlanPage: React.FC = () => {
 
   return (
     <SiteShell>
-      <SeoHead
+      <Seo
         title="SSC 2026 English Plan | Maharashtra SSC 10th English Checklist"
         description="SSC 2026 English revision checklist for Maharashtra SSC 10th: grammar drills, writing formats, and comprehension practice."
         canonical={canonical}
@@ -633,7 +667,7 @@ const FaqPage: React.FC = () => {
 
   return (
     <SiteShell>
-      <SeoHead
+      <Seo
         title="SSC 2026 FAQ | Maharashtra SSC 10th Countdown"
         description="Frequently asked questions about the SSC 2026 countdown, revision plan, and exam preparation for Maharashtra SSC 10th."
         canonical={canonical}
@@ -657,7 +691,7 @@ const PrivacyPage: React.FC = () => {
   const canonical = useCanonical();
   return (
     <SiteShell>
-      <SeoHead
+      <Seo
         title="Privacy Policy | SSC 2026 Countdown"
         description="Privacy details for SSC 2026 countdown telemetry, including what is logged to Telegram and what is not collected."
         canonical={canonical}
