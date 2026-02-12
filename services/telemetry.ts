@@ -2,6 +2,7 @@
 const TELEMETRY_SECRET = (import.meta.env.VITE_TELEMETRY_SECRET || '') as string;
 
 const TELEGRAM_FUNCTION_URL = '/api/log';
+const SESSION_ID_KEY = 'sessionId';
 
 export type TelemetryEventType =
   | 'page_view'
@@ -23,6 +24,7 @@ export interface TelemetryPayload {
   // event data
   event: TelemetryEventType;
   timestamp: string;
+  sessionId?: string;
 
   // device-ish (non-creepy, no IP)
   userAgent?: string;
@@ -30,30 +32,70 @@ export interface TelemetryPayload {
   language?: string;
   timezone?: string;
   timezoneOffsetMin?: number;
-  screen?: string;
   dpr?: number;
   cores?: number;
-  memory?: number;
+  memoryGB?: number | null;
   connection?: string;
   referrer?: string;
   path?: string;
+  url?: string;
+  screenW?: number;
+  screenH?: number;
+  viewportW?: number;
+  viewportH?: number;
+  prefersDark?: boolean;
+  netType?: string | null;
+  downlink?: number | null;
+  rtt?: number | null;
 }
 
-const buildBase = (): Omit<TelemetryPayload, 'event'> => ({
-  timestamp: new Date().toISOString(),
-  userAgent: navigator.userAgent,
-  platform: navigator.platform,
-  language: navigator.language,
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  timezoneOffsetMin: new Date().getTimezoneOffset(),
-  screen: `${window.screen?.width || 0}x${window.screen?.height || 0}`,
-  dpr: window.devicePixelRatio || 1,
-  cores: navigator.hardwareConcurrency,
-  memory: (navigator as any).deviceMemory,
-  connection: (navigator as any).connection?.effectiveType,
-  referrer: document.referrer || '',
-  path: window.location.pathname,
-});
+function createSessionId(): string {
+  if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  return `${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+}
+
+function getSessionId(): string {
+  let sessionId = sessionStorage.getItem(SESSION_ID_KEY);
+  if (!sessionId) {
+    sessionId = createSessionId();
+    sessionStorage.setItem(SESSION_ID_KEY, sessionId);
+  }
+  return sessionId;
+}
+
+const buildBase = (): Omit<TelemetryPayload, 'event'> => {
+  const connection = (navigator as any).connection;
+  return {
+    timestamp: new Date().toISOString(),
+    sessionId: getSessionId(),
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    language: navigator.language,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timezoneOffsetMin: new Date().getTimezoneOffset(),
+    dpr: window.devicePixelRatio || 1,
+    cores: navigator.hardwareConcurrency,
+    memoryGB: (navigator as any).deviceMemory ?? null,
+    connection: connection?.effectiveType,
+    referrer: document.referrer || '',
+    path: window.location.pathname,
+    url: window.location.href,
+    screenW: window.screen?.width || 0,
+    screenH: window.screen?.height || 0,
+    viewportW: window.innerWidth,
+    viewportH: window.innerHeight,
+    prefersDark: window.matchMedia?.('(prefers-color-scheme: dark)')?.matches || false,
+    netType: connection?.effectiveType ?? null,
+    downlink: connection?.downlink ?? null,
+    rtt: connection?.rtt ?? null,
+  };
+};
 
 async function postToSheets(payload: TelemetryPayload) {
   if (!SHEETS_WEBAPP_URL || !TELEMETRY_SECRET) return;
@@ -87,16 +129,25 @@ async function postToTelegram(payload: TelemetryPayload) {
         name: payload.name || '',
         details: buildTelegramDetails(payload),
         path: payload.path || '',
+        url: payload.url || '',
+        referrer: payload.referrer || '',
+        ts: payload.timestamp,
+        sessionId: payload.sessionId || '',
         userAgent: payload.userAgent || '',
         platform: payload.platform || '',
         language: payload.language || '',
-        screen: payload.screen || '',
-        dpr: payload.dpr,
         timezone: payload.timezone || '',
+        dpr: payload.dpr,
+        screenW: payload.screenW,
+        screenH: payload.screenH,
+        viewportW: payload.viewportW,
+        viewportH: payload.viewportH,
+        prefersDark: payload.prefersDark,
         cores: payload.cores,
-        memory: payload.memory,
-        connection: payload.connection || '',
-        referrer: payload.referrer || '',
+        memoryGB: payload.memoryGB,
+        netType: payload.netType,
+        downlink: payload.downlink,
+        rtt: payload.rtt,
       }),
     });
     if (!response.ok) {
