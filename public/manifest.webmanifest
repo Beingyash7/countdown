@@ -6,5 +6,12 @@
   "display": "standalone",
   "background_color": "#05080a",
   "theme_color": "#137fec",
-  "icons": []
+  "icons": [
+    {
+      "src": "/exam-countdown-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
