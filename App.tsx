@@ -277,9 +277,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen overflow-x-hidden overflow-y-auto py-10 bg-[#05080a] text-white flex flex-col items-center justify-center p-6">
         <div className="absolute inset-0 z-0 opacity-5 grayscale pointer-events-none">
-          <video autoPlay loop muted playsInline className="w-full h-full object-cover">
-            <source src="https://assets.mixkit.co/videos/preview/mixkit-the-earth-rotating-in-space-20093-large.mp4" type="video/mp4" />
-          </video>
+          <img src="/earth.jpg" alt="" className="w-full h-full object-cover" />
         </div>
 
         {!isAdminAuth ? (
@@ -423,9 +421,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen overflow-x-hidden overflow-y-auto py-10 bg-background-dark relative w-full flex items-start justify-center px-6 md:px-8">
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-40 scale-110">
-          <source src="https://assets.mixkit.co/videos/preview/mixkit-the-earth-rotating-in-space-20093-large.mp4" type="video/mp4" />
-        </video>
+        <img src="/earth.jpg" alt="" className="w-full h-full object-cover opacity-30 scale-110" />
         <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-transparent to-background-dark/80"></div>
       </div>
       
