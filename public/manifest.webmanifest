@@ -1,0 +1,10 @@
+{
+  "name": "SSC 2026 Countdown",
+  "short_name": "SSC 2026",
+  "description": "Maharashtra SSC 10th countdown with revision plans and checklists.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05080a",
+  "theme_color": "#137fec",
+  "icons": []
+}
