@@ -340,16 +340,21 @@ const DashboardPage: React.FC = () => {
   return (
     <SiteShell>
       <Seo
-        title="Maharashtra SSC 10th Countdown 2026 | SSC 2026 Countdown"
-        description="Live SSC 2026 countdown with a focused Maharashtra SSC 10th dashboard, revision plan links, and progress tracking for board exam prep."
+        title="10th SSC Exam Countdown (Maharashtra Board)"
+        description="Track your 10th SSC countdown with revision planning and preparation progress support for Maharashtra Board students."
         canonical={canonical}
         schema={websiteSchema}
       />
 
       <div className="absolute top-6 md:top-10 left-6 md:left-10 z-20 flex items-center space-x-3">
-        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
-          <span className="material-icons text-white text-sm">rocket_launch</span>
-        </div>
+        <img
+          src="/logo-ssc-countdown.png"
+          alt="10th SSC exam countdown for Maharashtra Board"
+          width={40}
+          height={40}
+          className="w-10 h-10 rounded-lg bg-white/90 object-contain p-[2px] shadow-lg shadow-primary/30"
+          loading="eager"
+        />
         <div className="flex flex-col">
           <span className="text-[11px] font-bold text-white tracking-[0.2em] leading-none uppercase">Apex Terminal</span>
           <span className="text-[9px] font-medium text-primary tracking-[0.3em] mt-1 uppercase">Candidate: {user.name}</span>

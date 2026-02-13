@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /website/admin-yash
 
 Sitemap: https://countdown-84q.pages.dev/sitemap.xml
+Host: countdown-84q.pages.dev

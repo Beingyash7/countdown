@@ -1,17 +1,20 @@
 {
-  "name": "SSC 2026 Countdown",
-  "short_name": "SSC 2026",
-  "description": "Maharashtra SSC 10th countdown with revision plans and checklists.",
+  "name": "10th SSC Exam Countdown (Maharashtra Board)",
+  "short_name": "SSC Countdown",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#05080a",
-  "theme_color": "#137fec",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
   "icons": [
     {
-      "src": "/exam-countdown-logo.png",
+      "src": "/logo-ssc-countdown-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo-ssc-countdown-512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }
