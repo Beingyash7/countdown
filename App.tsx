@@ -4,10 +4,14 @@ import { TimeRemaining } from './types';
 import { generateMissionUpdate } from './services/geminiService';
 import { getUsersData, updateCurrentUser, UserRecord, getCurrentUser, saveUsersData } from './usersdata';
 import { logEvent, sendTelemetry } from './services/telemetry';
+import { SEO_ROUTE_MAP } from './seoConfig.js';
+
+type SeoRoutePath = '/' | '/about' | '/revision-plan' | '/math-plan' | '/science-plan' | '/english-plan' | '/faq' | '/privacy';
 
 const ADMIN_PATH = (import.meta.env.VITE_ADMIN_PATH || '/website/admin-yash') as string;
 const ADMIN_PASSWORD = (import.meta.env.VITE_ADMIN_PASSWORD || 'yash2701') as string;
 const SITE_URL = ((import.meta.env.VITE_SITE_URL || window.location.origin) as string).replace(/\/$/, '');
+const DEFAULT_OG_IMAGE = `${SITE_URL}/og-ssc-countdown.png`;
 
 const App: React.FC = () => (
   <BrowserRouter>
@@ -35,13 +39,17 @@ const useCanonical = () => {
   return `${SITE_URL}${location.pathname}`;
 };
 
+const getSeoForPath = (path: SeoRoutePath) => SEO_ROUTE_MAP[path];
+
 const Seo: React.FC<{
   title: string;
   description: string;
   canonical: string;
   ogType?: string;
-  schema?: Record<string, unknown> | Record<string, unknown>[];
-}> = ({ title, description, canonical, ogType = 'website', schema }) => {
+  keywords?: string[];
+  robots?: string;
+  schemaGraph?: Record<string, unknown>[];
+}> = ({ title, description, canonical, ogType = 'website', keywords, robots, schemaGraph }) => {
   useEffect(() => {
     const head = document.head;
     document.title = title;
@@ -71,30 +79,37 @@ const Seo: React.FC<{
     };
 
     setMeta('description', description);
+    setMeta('keywords', (keywords || []).join(', '));
+    setMeta('robots', robots || 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1');
     setLink('canonical', canonical);
 
     setMeta('og:title', title, true);
     setMeta('og:description', description, true);
     setMeta('og:url', canonical, true);
     setMeta('og:type', ogType, true);
+    setMeta('og:image', DEFAULT_OG_IMAGE, true);
 
     setMeta('twitter:card', 'summary_large_image');
     setMeta('twitter:title', title);
     setMeta('twitter:description', description);
+    setMeta('twitter:image', DEFAULT_OG_IMAGE);
 
     const existingScript = head.querySelector('script[data-seo-schema="true"]') as HTMLScriptElement | null;
-    if (schema) {
+    if (schemaGraph && schemaGraph.length > 0) {
       const script = existingScript || document.createElement('script');
       if (!existingScript) {
         script.type = 'application/ld+json';
         script.setAttribute('data-seo-schema', 'true');
         head.appendChild(script);
       }
-      script.text = JSON.stringify(schema);
+      script.text = JSON.stringify({
+        '@context': 'https://schema.org',
+        '@graph': schemaGraph,
+      });
     } else if (existingScript) {
       existingScript.remove();
     }
-  }, [title, description, canonical, ogType, schema]);
+  }, [title, description, canonical, ogType, keywords, robots, schemaGraph]);
 
   return null;
 };
@@ -131,6 +146,32 @@ const SiteFooter: React.FC = () => (
     <Link className="hover:text-white" to="/privacy">Privacy</Link>
   </footer>
 );
+
+const RelatedResources: React.FC<{ currentPath: SeoRoutePath }> = ({ currentPath }) => {
+  const resources = [
+    { to: '/', label: '10th SSC exam countdown' },
+    { to: '/revision-plan', label: '10th SSC revision plan' },
+    { to: '/math-plan', label: 'SSC math checklist' },
+    { to: '/science-plan', label: 'Class 10 science revision' },
+    { to: '/english-plan', label: 'SSC English writing practice' },
+    { to: '/faq', label: '10th SSC board exam FAQ' },
+  ] as const;
+
+  return (
+    <section className="mt-6 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+      <h2 className="text-[11px] uppercase tracking-[0.2em] text-white/50 mb-3">Related SSC Resources</h2>
+      <div className="flex flex-wrap gap-3 text-[12px] text-white/60">
+        {resources
+          .filter((resource) => resource.to !== currentPath)
+          .map((resource) => (
+            <Link key={resource.to} className="hover:text-white underline decoration-white/20" to={resource.to}>
+              {resource.label}
+            </Link>
+          ))}
+      </div>
+    </section>
+  );
+};
 
 const DashboardPage: React.FC = () => {
   const canonical = useCanonical();
@@ -325,25 +366,37 @@ const DashboardPage: React.FC = () => {
     setIsProfileModalOpen(true);
   };
 
-  const websiteSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: 'SSC 2026 Countdown',
-    url: canonical,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: `${SITE_URL}/?q={search_term_string}`,
-      'query-input': 'required name=search_term_string',
+  const seo = getSeoForPath('/');
+  const websiteSchemaGraph = [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: '10th SSC Exam Countdown',
+      url: SITE_URL,
+      logo: `${SITE_URL}/logo-ssc-countdown.png`,
     },
-  };
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: '10th SSC Exam Countdown',
+      inLanguage: 'en-IN',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: `${SITE_URL}/?q={search_term_string}`,
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  ] as Record<string, unknown>[];
 
   return (
     <SiteShell>
       <Seo
-        title="10th SSC Exam Countdown (Maharashtra Board)"
-        description="Track your 10th SSC countdown with revision planning and preparation progress support for Maharashtra Board students."
+        title={seo.title}
+        description={seo.description}
         canonical={canonical}
-        schema={websiteSchema}
+        keywords={seo.keywords}
+        schemaGraph={websiteSchemaGraph}
       />
 
       <div className="absolute top-6 md:top-10 left-6 md:left-10 z-20 flex items-center space-x-3">
@@ -404,7 +457,8 @@ const DashboardPage: React.FC = () => {
               <span className="material-icons text-[12px] mr-2">timer</span>
               Launch: Feb 22, {targetDate.getFullYear()}
             </div>
-            <h1 className="text-5xl md:text-7xl font-extralight text-white tracking-tighter mb-4">{user.missionName}</h1>
+            <h1 className="sr-only">10th SSC exam countdown and SSC board exam countdown timer</h1>
+            <h2 className="text-5xl md:text-7xl font-extralight text-white tracking-tighter mb-4">{user.missionName}</h2>
             <p className="max-w-xl mx-auto text-white/40 text-sm font-light tracking-wide italic leading-relaxed">"{user.status}"</p>
           </div>
 
@@ -431,11 +485,56 @@ const DashboardPage: React.FC = () => {
                 to="/revision-plan"
                 className="text-[11px] uppercase tracking-widest text-primary hover:text-white transition-colors"
               >
-                Revision Plan →
+                Revision Plan -&gt;
               </Link>
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="mt-8 space-y-8">
+        <ContentCard title="What is SSC Board Exam Countdown for Class 10?" headingLevel="h2">
+          <p className="text-white/60 text-sm leading-relaxed">
+            This 10th SSC exam countdown is designed for students who want clear direction during board preparation. The timer shows how many
+            days are left for exam readiness and helps you break preparation into realistic daily targets. Instead of random study sessions, you
+            can use this dashboard to combine revision, practice papers, and error correction in one routine. If you are searching for an SSC
+            board exam countdown that also supports execution, this page is built for that exact need.
+          </p>
+          <p className="text-white/60 text-sm leading-relaxed">
+            Many students ask how to turn time left into marks. Start with a short weekly plan, then track completion and weak chapters every day.
+            That means concept recap, timed question sets, and review of mistakes. This cycle is practical for all-India Class 10 SSC learners and
+            aligns with common board exam patterns. The target is not only to finish syllabus, but to improve recall speed and answer quality under
+            exam pressure.
+          </p>
+        </ContentCard>
+
+        <ContentCard title="How to use this for SSC board ki tayari (daily routine)" headingLevel="h2">
+          <div className="grid gap-4 text-white/60 text-sm leading-relaxed">
+            <Section title="Step 1: 60-minute concept block">
+              Pick one chapter and revise formulas, definitions, and key examples. This makes your base strong before problem solving starts.
+            </Section>
+            <Section title="Step 2: 45-minute practice block">
+              Solve mixed questions with a timer. Mark doubtful questions so your 10th SSC prep plan stays focused on weak areas.
+            </Section>
+            <Section title="Step 3: 20-minute error log">
+              Rewrite wrong answers with the correct method. Repeating this daily is one of the fastest ways to improve board score consistency.
+            </Section>
+          </div>
+          <div className="space-y-3">
+            <h2 className="text-white/80 text-sm font-semibold mt-4">Quick FAQ for students</h2>
+            <p className="text-white/60 text-sm leading-relaxed">
+              Q: SSC board exam ke liye revision kab start karna chahiye? A: Start immediately with short daily cycles, then increase paper
+              practice in the final 3 weeks.
+            </p>
+            <p className="text-white/60 text-sm leading-relaxed">
+              Q: Is this only for one state board? A: No, the strategy is useful for all-India SSC style preparation.
+            </p>
+            <p className="text-white/60 text-sm leading-relaxed">
+              Q: What if I miss one day? A: Do a half-day recovery plan and continue. Do not restart from zero.
+            </p>
+          </div>
+          <RelatedResources currentPath="/" />
+        </ContentCard>
       </div>
 
       {isProfileModalOpen && (
@@ -454,20 +553,27 @@ const DashboardPage: React.FC = () => {
 };
 const AboutPage: React.FC = () => {
   const canonical = useCanonical();
+  const seo = getSeoForPath('/about');
   return (
     <SiteShell>
       <Seo
-        title="About SSC 2026 Countdown | Maharashtra SSC 10th Focus"
-        description="Learn how this Maharashtra SSC 10th countdown dashboard helps with SSC 2026 planning, daily focus, and revision structure."
+        title={seo.title}
+        description={seo.description}
         canonical={canonical}
+        keywords={seo.keywords}
       />
-      <ContentCard title="About The SSC 2026 Countdown">
+      <ContentCard title="About the 10th SSC exam countdown platform">
         <p className="text-white/60 text-sm leading-relaxed">
-          This dashboard is built for Maharashtra SSC 10th students who want a clean, focused countdown to SSC 2026 with practical revision support. It combines a live timer, personal progress tracking, and structured revision plans so you can stay consistent without clutter.
+          This website is built for Class 10 students preparing for SSC board exams across India. The main purpose is to convert time left into a
+          practical action plan, not just show a timer. Students usually search for a 10th SSC exam countdown and then struggle with daily
+          execution. Here, countdown, revision structure, and subject checklists are combined so planning and studying stay connected.
         </p>
         <p className="text-white/60 text-sm leading-relaxed">
-          Use the plans to target your weak areas, track daily output, and keep your momentum high as the exam window approaches.
+          The workflow is simple: identify weak chapters, run short daily revision blocks, track completion, and practice timed papers frequently.
+          This works well for learners doing ssc board ki tayari because consistency matters more than one-time long sessions. If you are following
+          a 10th SSC prep plan, use the linked revision pages to set weekly goals and monitor progress.
         </p>
+        <RelatedResources currentPath="/about" />
       </ContentCard>
     </SiteShell>
   );
@@ -475,28 +581,46 @@ const AboutPage: React.FC = () => {
 
 const RevisionPlanPage: React.FC = () => {
   const canonical = useCanonical();
-  const schema = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: 'SSC 2026 Revision Plan - 10 Day Sprint',
-    author: { '@type': 'Organization', name: 'SSC Countdown' },
-    datePublished: '2026-02-12',
-    dateModified: '2026-02-12',
-    mainEntityOfPage: canonical,
-  };
+  const seo = getSeoForPath('/revision-plan');
+  const schemaGraph = [
+    {
+      '@type': 'Article',
+      headline: '10th SSC revision plan for 7, 10, and 15 day preparation cycles',
+      author: { '@type': 'Organization', name: '10th SSC Exam Countdown' },
+      datePublished: '2026-02-12',
+      dateModified: '2026-02-13',
+      mainEntityOfPage: canonical,
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+        { '@type': 'ListItem', position: 2, name: 'Revision Plan', item: canonical },
+      ],
+    },
+  ] as Record<string, unknown>[];
 
   return (
     <SiteShell>
       <Seo
-        title="SSC 2026 Revision Plan | 10-Day Maharashtra SSC 10th Sprint"
-        description="A focused 10-day SSC revision plan for Maharashtra SSC 10th students, plus links to math, science, and English checklists."
+        title={seo.title}
+        description={seo.description}
         canonical={canonical}
-        ogType="article"
-        schema={schema}
+        ogType={seo.ogType}
+        keywords={seo.keywords}
+        schemaGraph={schemaGraph}
       />
-      <ContentCard title="10-Day SSC 2026 Revision Plan">
+      <ContentCard title="10th SSC revision plan: practical prep for board exams">
         <p className="text-white/60 text-sm leading-relaxed">
-          This 10-day plan is designed as a realistic sprint before exams. Keep each day short and repeatable: concept recap, targeted practice, and quick error review. If you miss a day, do a half-day catch-up and continue.
+          This 10th SSC revision plan is made for students who want a repeatable system before exams. Most learners lose marks because they revise
+          randomly, not because they are weak in every chapter. Use this plan to cycle through concept recall, practice questions, and quick error
+          analysis every day. If you searched for ssc board exam ke liye revision, this structure gives you a clear order of work so you can avoid
+          panic and still cover important topics with consistency.
+        </p>
+        <p className="text-white/60 text-sm leading-relaxed">
+          Start by listing weak chapters for each subject. Next, allocate fixed daily blocks and keep one timed section test every two to three
+          days. Review mistakes the same day so memory correction is immediate. This method helps students increase answer accuracy and speed
+          together. The goal is not to study all day, but to study in a controlled pattern that improves output every week.
         </p>
         <div className="grid gap-4 text-white/60 text-sm leading-relaxed">
           <Section title="Day 1-2: Core Concepts Reset">
@@ -518,7 +642,15 @@ const RevisionPlanPage: React.FC = () => {
             Quick formula scan, summary notes, and past mistakes. Sleep early.
           </Section>
         </div>
-        <PlanCrossLinks />
+        <div className="grid gap-4 text-white/60 text-sm leading-relaxed">
+          <Section title="Who this plan is for">
+            Class 10 SSC students who have completed most chapters but need a final execution system to improve scores.
+          </Section>
+          <Section title="How to use in 7, 10, and 15 days">
+            For a 7-day sprint, merge paired days. For a 10-day sprint, follow as written. For a 15-day cycle, add buffer days after each paper test.
+          </Section>
+        </div>
+        <RelatedResources currentPath="/revision-plan" />
       </ContentCard>
     </SiteShell>
   );
@@ -526,26 +658,46 @@ const RevisionPlanPage: React.FC = () => {
 
 const MathPlanPage: React.FC = () => {
   const canonical = useCanonical();
-  const schema = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: 'SSC 2026 Math Revision Checklist',
-    author: { '@type': 'Organization', name: 'SSC Countdown' },
-    datePublished: '2026-02-12',
-    dateModified: '2026-02-12',
-    mainEntityOfPage: canonical,
-  };
+  const seo = getSeoForPath('/math-plan');
+  const schemaGraph = [
+    {
+      '@type': 'Article',
+      headline: '10th SSC math revision plan and checklist for board readiness',
+      author: { '@type': 'Organization', name: '10th SSC Exam Countdown' },
+      datePublished: '2026-02-12',
+      dateModified: '2026-02-13',
+      mainEntityOfPage: canonical,
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+        { '@type': 'ListItem', position: 2, name: 'Math Plan', item: canonical },
+      ],
+    },
+  ] as Record<string, unknown>[];
 
   return (
     <SiteShell>
       <Seo
-        title="SSC 2026 Math Plan | Maharashtra SSC 10th Math Checklist"
-        description="A practical SSC 2026 math revision checklist: formulas, problem sets, and timed practice for Maharashtra SSC 10th."
+        title={seo.title}
+        description={seo.description}
         canonical={canonical}
-        ogType="article"
-        schema={schema}
+        ogType={seo.ogType}
+        keywords={seo.keywords}
+        schemaGraph={schemaGraph}
       />
-      <ContentCard title="Math Revision Checklist">
+      <ContentCard title="10th SSC math revision plan for scoring consistency">
+        <p className="text-white/60 text-sm leading-relaxed">
+          This 10th SSC math revision plan is focused on output quality, not just chapter reading. Mathematics in board exams rewards method,
+          precision, and speed under a timer. If your goal is to improve marks reliably, divide preparation into formula recall, mixed problem
+          solving, and post-test error fixing. Students who do this daily usually reduce silly mistakes and improve confidence in paper sections
+          that normally consume extra time.
+        </p>
+        <p className="text-white/60 text-sm leading-relaxed">
+          Use this checklist as a loop for 7-day, 10-day, or 15-day prep cycles. Track difficult chapters separately and review them every third
+          day. This works for all-India SSC board style practice because question patterns commonly test concept application, not memorization.
+        </p>
         <ul className="list-disc pl-6 text-white/60 text-sm space-y-2">
           <li>Rewrite core formulas by chapter (algebra, geometry, trigonometry).</li>
           <li>Pick 20 mixed problems daily, mark 5 toughest and redo them.</li>
@@ -553,7 +705,15 @@ const MathPlanPage: React.FC = () => {
           <li>Time one section paper every 2-3 days to build speed.</li>
           <li>Keep a mistake log and re-solve errors without notes.</li>
         </ul>
-        <PlanCrossLinks />
+        <div className="grid gap-4 text-white/60 text-sm leading-relaxed">
+          <Section title="Who this plan is for">
+            Students who know the basics but lose marks in multi-step problems, calculation slips, or time pressure.
+          </Section>
+          <Section title="How to use in 7, 10, and 15 days">
+            In 7 days: focus on top weak chapters. In 10 days: include two timed papers. In 15 days: add full-paper review and reattempt sessions.
+          </Section>
+        </div>
+        <RelatedResources currentPath="/math-plan" />
       </ContentCard>
     </SiteShell>
   );
@@ -561,26 +721,46 @@ const MathPlanPage: React.FC = () => {
 
 const SciencePlanPage: React.FC = () => {
   const canonical = useCanonical();
-  const schema = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: 'SSC 2026 Science Revision Checklist',
-    author: { '@type': 'Organization', name: 'SSC Countdown' },
-    datePublished: '2026-02-12',
-    dateModified: '2026-02-12',
-    mainEntityOfPage: canonical,
-  };
+  const seo = getSeoForPath('/science-plan');
+  const schemaGraph = [
+    {
+      '@type': 'Article',
+      headline: '10th SSC science revision plan for concept and diagram mastery',
+      author: { '@type': 'Organization', name: '10th SSC Exam Countdown' },
+      datePublished: '2026-02-12',
+      dateModified: '2026-02-13',
+      mainEntityOfPage: canonical,
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+        { '@type': 'ListItem', position: 2, name: 'Science Plan', item: canonical },
+      ],
+    },
+  ] as Record<string, unknown>[];
 
   return (
     <SiteShell>
       <Seo
-        title="SSC 2026 Science Plan | Maharashtra SSC 10th Science Checklist"
-        description="Practical SSC 2026 science checklist with diagrams, short answers, and concept tests for Maharashtra SSC 10th."
+        title={seo.title}
+        description={seo.description}
         canonical={canonical}
-        ogType="article"
-        schema={schema}
+        ogType={seo.ogType}
+        keywords={seo.keywords}
+        schemaGraph={schemaGraph}
       />
-      <ContentCard title="Science Revision Checklist">
+      <ContentCard title="10th SSC science revision plan for board performance">
+        <p className="text-white/60 text-sm leading-relaxed">
+          This 10th SSC science revision plan helps you cover both theory clarity and answer writing quality. Science board marks depend on
+          diagrams, definitions, and structured explanations, so revision must include active recall instead of passive reading. Break your
+          sessions into concept summaries, diagram practice, and chapter-wise tests. If you are doing ssc board exam ke liye revision in limited
+          time, this format keeps preparation measurable and focused.
+        </p>
+        <p className="text-white/60 text-sm leading-relaxed">
+          Keep a short notebook for high-frequency terms and reaction names. Revise this list daily before practice sets. After each chapter test,
+          spend ten minutes correcting language and sequencing in long answers. This improves scoring even when your concepts are already decent.
+        </p>
         <ul className="list-disc pl-6 text-white/60 text-sm space-y-2">
           <li>Memorize key diagrams and label them without notes.</li>
           <li>Summarize each chapter in 5-7 bullet points.</li>
@@ -588,7 +768,15 @@ const SciencePlanPage: React.FC = () => {
           <li>Do 10 MCQs per chapter and track accuracy.</li>
           <li>Revise definitions and keywords daily.</li>
         </ul>
-        <PlanCrossLinks />
+        <div className="grid gap-4 text-white/60 text-sm leading-relaxed">
+          <Section title="Who this plan is for">
+            Class 10 SSC students who need better retention for diagrams, definitions, and chapter-level explanations.
+          </Section>
+          <Section title="How to use in 7, 10, and 15 days">
+            In 7 days, cover priority chapters only. In 10 days, include 3 timed science sets. In 15 days, add a full-paper simulation cycle.
+          </Section>
+        </div>
+        <RelatedResources currentPath="/science-plan" />
       </ContentCard>
     </SiteShell>
   );
@@ -596,26 +784,45 @@ const SciencePlanPage: React.FC = () => {
 
 const EnglishPlanPage: React.FC = () => {
   const canonical = useCanonical();
-  const schema = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: 'SSC 2026 English Revision Checklist',
-    author: { '@type': 'Organization', name: 'SSC Countdown' },
-    datePublished: '2026-02-12',
-    dateModified: '2026-02-12',
-    mainEntityOfPage: canonical,
-  };
+  const seo = getSeoForPath('/english-plan');
+  const schemaGraph = [
+    {
+      '@type': 'Article',
+      headline: '10th SSC English revision plan for grammar and writing formats',
+      author: { '@type': 'Organization', name: '10th SSC Exam Countdown' },
+      datePublished: '2026-02-12',
+      dateModified: '2026-02-13',
+      mainEntityOfPage: canonical,
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+        { '@type': 'ListItem', position: 2, name: 'English Plan', item: canonical },
+      ],
+    },
+  ] as Record<string, unknown>[];
 
   return (
     <SiteShell>
       <Seo
-        title="SSC 2026 English Plan | Maharashtra SSC 10th English Checklist"
-        description="SSC 2026 English revision checklist for Maharashtra SSC 10th: grammar drills, writing formats, and comprehension practice."
+        title={seo.title}
+        description={seo.description}
         canonical={canonical}
-        ogType="article"
-        schema={schema}
+        ogType={seo.ogType}
+        keywords={seo.keywords}
+        schemaGraph={schemaGraph}
       />
-      <ContentCard title="English Revision Checklist">
+      <ContentCard title="10th SSC English revision plan for better writing marks">
+        <p className="text-white/60 text-sm leading-relaxed">
+          This 10th SSC English revision plan is designed for students who need better structure in grammar, comprehension, and writing formats.
+          English scores improve when you practice answer form, vocabulary precision, and sentence clarity on a schedule. Instead of reading
+          chapters passively, use short drills and timed writing tasks that match board answer expectations.
+        </p>
+        <p className="text-white/60 text-sm leading-relaxed">
+          For ssc board ki tayari, focus on repetition with feedback. Practice one writing format daily, check grammar errors, and maintain a
+          personal correction list. Over a 10-day cycle, this method improves speed and response quality, especially for medium-length answers.
+        </p>
         <ul className="list-disc pl-6 text-white/60 text-sm space-y-2">
           <li>Revise grammar rules with 10 daily practice questions.</li>
           <li>Practice writing formats: letters, reports, and essays.</li>
@@ -623,62 +830,113 @@ const EnglishPlanPage: React.FC = () => {
           <li>Revise vocabulary with synonyms and commonly confused words.</li>
           <li>Check spelling and punctuation on every written answer.</li>
         </ul>
-        <PlanCrossLinks />
+        <div className="grid gap-4 text-white/60 text-sm leading-relaxed">
+          <Section title="Who this plan is for">
+            Students who lose marks in grammar accuracy, answer format, or time management in descriptive writing.
+          </Section>
+          <Section title="How to use in 7, 10, and 15 days">
+            In 7 days, prioritize grammar and writing templates. In 10 days, add timed comprehension sets. In 15 days, add two full writing mock cycles.
+          </Section>
+        </div>
+        <RelatedResources currentPath="/english-plan" />
       </ContentCard>
     </SiteShell>
   );
 };
 const FaqPage: React.FC = () => {
   const canonical = useCanonical();
+  const seo = getSeoForPath('/faq');
   const faqItems = [
     {
-      question: 'What is the SSC 2026 countdown for Maharashtra SSC 10th?',
-      answer: 'It is a live timer that tracks the remaining time until the SSC 2026 exam window, designed to keep revision planning focused.',
+      question: 'What is a 10th SSC exam countdown and how does it help?',
+      answer: 'It is a live timer plus revision workflow that helps you convert remaining days into a practical preparation plan with daily checkpoints.',
     },
     {
-      question: 'How should I use the 10-day revision plan?',
-      answer: 'Treat it as a sprint: review concepts, practice targeted questions, and fix errors daily. If you miss a day, do a half-day catch-up.',
+      question: 'How should I use this 10th SSC revision plan daily?',
+      answer: 'Use a three-part cycle: concept revision, timed questions, and error review. Continue the cycle even if one day is missed.',
     },
     {
-      question: 'Is the dashboard only for Maharashtra SSC 10th students?',
-      answer: 'The content is optimized for Maharashtra SSC 10th, but the revision structure can help any SSC-style exam prep.',
+      question: 'Is this useful only for one board or for all-India SSC students?',
+      answer: 'The structure is useful for all-India SSC style preparation. You can adapt chapter lists to your board syllabus.',
     },
     {
-      question: 'What subjects are covered in the revision plans?',
-      answer: 'Dedicated checklists are available for Math, Science, and English, plus a 10-day full revision plan.',
+      question: 'What subjects are covered in the preparation pages?',
+      answer: 'Dedicated revision checklists are available for Math, Science, and English, along with a full revision strategy page.',
     },
     {
-      question: 'How often should I practice full-length papers?',
-      answer: 'Aim for one timed paper every 2-3 days during the final 10-day sprint and review mistakes immediately.',
+      question: 'How often should I practice SSC board full-length papers?',
+      answer: 'Practice one timed paper every 2 to 3 days during final prep and review mistakes immediately after each paper.',
+    },
+    {
+      question: 'SSC board ki tayari ke liye 7-day plan better hai ya 10-day?',
+      answer: 'Choose 7-day for urgent recovery, 10-day for balanced coverage, and 15-day when you need extra mock paper analysis.',
+    },
+    {
+      question: 'How can I improve marks fast in 10th SSC math?',
+      answer: 'Revise formulas daily, solve mixed timed sets, and maintain an error notebook for reattempts.',
+    },
+    {
+      question: 'How should I revise science diagrams for board exams?',
+      answer: 'Practice drawing and labeling without notes, then check keyword accuracy for each diagram answer.',
+    },
+    {
+      question: 'How do I score better in 10th SSC English writing sections?',
+      answer: 'Use standard answer formats, grammar checks, and timed writing practice for letters, reports, and essays.',
+    },
+    {
+      question: 'When should I start paper solving before board exams?',
+      answer: 'Start at least two to three weeks before the exam window and increase frequency in the final 10 days.',
+    },
+    {
+      question: 'How many hours are enough for daily SSC board preparation?',
+      answer: 'Consistent 2.5 to 4 hours of focused work is often better than irregular long study sessions.',
+    },
+    {
+      question: 'What should I do if I miss one study day?',
+      answer: 'Use a half-day catch-up method and continue. Do not reset the entire plan.',
     },
     {
       question: 'Does this site collect personal data?',
-      answer: 'The telemetry is limited to basic device and session details for analytics and is explained in the Privacy page. No GPS location is collected without permission.',
+      answer: 'Telemetry is limited to basic device and session details for analytics and is described in the Privacy page.',
     },
   ];
 
-  const schema = {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: faqItems.map((item) => ({
-      '@type': 'Question',
-      name: item.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: item.answer,
-      },
-    })),
-  };
+  const schemaGraph = [
+    {
+      '@type': 'FAQPage',
+      mainEntity: faqItems.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.answer,
+        },
+      })),
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+        { '@type': 'ListItem', position: 2, name: 'FAQ', item: canonical },
+      ],
+    },
+  ] as Record<string, unknown>[];
 
   return (
     <SiteShell>
       <Seo
-        title="SSC 2026 FAQ | Maharashtra SSC 10th Countdown"
-        description="Frequently asked questions about the SSC 2026 countdown, revision plan, and exam preparation for Maharashtra SSC 10th."
+        title={seo.title}
+        description={seo.description}
         canonical={canonical}
-        schema={schema}
+        keywords={seo.keywords}
+        schemaGraph={schemaGraph}
       />
-      <ContentCard title="FAQ">
+      <ContentCard title="10th SSC board exam FAQ: countdown, planning, and scoring">
+        <p className="text-white/60 text-sm leading-relaxed">
+          This FAQ section answers practical questions students ask during Class 10 SSC preparation. Use these answers to build a cleaner routine
+          for revision, paper practice, and chapter prioritization. If you are searching for 10th SSC board exam FAQ terms, this page is built to
+          cover common doubts in both English and natural Hinglish phrasing.
+        </p>
         <div className="space-y-5">
           {faqItems.map((item) => (
             <div key={item.question}>
@@ -687,6 +945,7 @@ const FaqPage: React.FC = () => {
             </div>
           ))}
         </div>
+        <RelatedResources currentPath="/faq" />
       </ContentCard>
     </SiteShell>
   );
@@ -694,12 +953,14 @@ const FaqPage: React.FC = () => {
 
 const PrivacyPage: React.FC = () => {
   const canonical = useCanonical();
+  const seo = getSeoForPath('/privacy');
   return (
     <SiteShell>
       <Seo
-        title="Privacy Policy | SSC 2026 Countdown"
-        description="Privacy details for SSC 2026 countdown telemetry, including what is logged to Telegram and what is not collected."
+        title={seo.title}
+        description={seo.description}
         canonical={canonical}
+        keywords={seo.keywords}
       />
       <ContentCard title="Privacy & Telemetry">
         <p className="text-white/60 text-sm leading-relaxed">
@@ -708,26 +969,21 @@ const PrivacyPage: React.FC = () => {
         <p className="text-white/60 text-sm leading-relaxed">
           We do not collect GPS location or any precise location signals without explicit user permission. We do not sell data, and telemetry is used only for operational analytics and monitoring.
         </p>
+        <RelatedResources currentPath="/privacy" />
       </ContentCard>
     </SiteShell>
   );
 };
 
-const PlanCrossLinks: React.FC = () => (
-  <div className="mt-6 text-[12px] text-white/50 flex flex-wrap gap-4">
-    <span className="uppercase tracking-widest text-white/30">Also see:</span>
-    <Link className="hover:text-white" to="/math-plan">Math Plan</Link>
-    <Link className="hover:text-white" to="/science-plan">Science Plan</Link>
-    <Link className="hover:text-white" to="/english-plan">English Plan</Link>
-  </div>
-);
-
-const ContentCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="acrylic relative z-10 rounded-3xl border border-white/10 shadow-2xl p-8 md:p-10 space-y-4">
-    <h1 className="text-3xl md:text-4xl font-light text-white tracking-tight">{title}</h1>
-    {children}
-  </div>
-);
+const ContentCard: React.FC<{ title: string; children: React.ReactNode; headingLevel?: 'h1' | 'h2' }> = ({ title, children, headingLevel = 'h1' }) => {
+  const HeadingTag = headingLevel;
+  return (
+    <div className="acrylic relative z-10 rounded-3xl border border-white/10 shadow-2xl p-8 md:p-10 space-y-4">
+      <HeadingTag className="text-3xl md:text-4xl font-light text-white tracking-tight">{title}</HeadingTag>
+      {children}
+    </div>
+  );
+};
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div>
@@ -737,6 +993,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
 );
 
 const AdminPage: React.FC = () => {
+  const canonical = useCanonical();
   const [user, setUser] = useState<UserRecord>(getCurrentUser());
   const [adminPassword, setAdminPassword] = useState('');
   const [isAdminAuth, setIsAdminAuth] = useState(false);
@@ -801,7 +1058,14 @@ const AdminPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden overflow-y-auto py-10 bg-[#05080a] text-white flex flex-col items-center justify-center p-6">
+    <>
+      <Seo
+        title="Admin | 10th SSC Exam Countdown"
+        description="Restricted admin interface."
+        canonical={canonical}
+        robots="noindex, nofollow, noarchive"
+      />
+      <div className="min-h-screen overflow-x-hidden overflow-y-auto py-10 bg-[#05080a] text-white flex flex-col items-center justify-center p-6">
       <div className="absolute inset-0 z-0 opacity-5 grayscale pointer-events-none">
         <video autoPlay loop muted playsInline className="w-full h-full object-cover">
           <source src="https://assets.mixkit.co/videos/preview/mixkit-the-earth-rotating-in-space-20093-large.mp4" type="video/mp4" />
@@ -939,7 +1203,8 @@ const AdminPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };
 
