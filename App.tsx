@@ -1142,7 +1142,7 @@ const AdminPage: React.FC = () => {
                     >
                       <span className="text-xs font-bold text-white/80">{u.name}</span>
                       <div className="flex justify-between items-center">
-                        <span className="text-[9px] font-mono text-white/30">{u.ip || '0.0.0.0'}</span>
+                        <span className="text-[9px] font-mono text-white/30">{u.platform || 'Unknown'}</span>
                         <span className="text-[8px] uppercase tracking-tighter text-primary/60">{u.os || 'SYS'}</span>
                       </div>
                     </button>
@@ -1297,3 +1297,4 @@ const NameModal: React.FC<{
 );
 
 export default App;
+
