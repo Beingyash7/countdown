@@ -20,13 +20,14 @@ function parseUserAgent(ua = '') {
   return { os, browser, deviceType };
 }
 
-function buildMessage({ event, name, details, path, timestamp, deviceInfo, meta }) {
+function buildMessage({ event, name, details, path, timestamp, deviceInfo, meta, ip }) {
   const lines = [
     `Timestamp (IST): ${timestamp}`,
     event ? `Event: ${event}` : 'Event: (missing)',
     name ? `Name: ${name}` : '',
     details ? `Details: ${details}` : '',
     path ? `Path: ${path}` : '',
+    ip ? `IP: ${ip}` : '',
     deviceInfo ? `Device: ${deviceInfo}` : '',
     meta ? `Meta: ${meta}` : '',
   ].filter(Boolean);
@@ -52,6 +53,13 @@ exports.handler = async (netlifyEvent) => {
   } catch (err) {
     return { statusCode: 500, body: 'Invalid JSON body' };
   }
+
+  const headers = netlifyEvent.headers || {};
+  const ip =
+    headers['x-nf-client-connection-ip'] ||
+    headers['client-ip'] ||
+    (headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+    '';
 
   const {
     event,
@@ -95,7 +103,7 @@ exports.handler = async (netlifyEvent) => {
   ].filter(Boolean);
   const meta = metaParts.join(' | ');
 
-  const text = buildMessage({ event, name, details, path, timestamp, deviceInfo, meta });
+  const text = buildMessage({ event, name, details, path, timestamp, deviceInfo, meta, ip });
 
   try {
     const response = await fetch(`${TELEGRAM_API_BASE}/bot${token}/sendMessage`, {
